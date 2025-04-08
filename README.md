@@ -75,5 +75,5 @@ Host hostname2
     User username2
 ```
 
-## Resources used to buid this
+## Resources used to build this
 [Medium Article](https://medium.com/devsecops-community/ssh-like-a-boss-why-remember-hosts-when-your-terminal-can-do-it-for-you-a7d9f8497548)
