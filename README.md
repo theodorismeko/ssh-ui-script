@@ -26,7 +26,7 @@ sudo apt-get install dialog
 ```
 
 ## Usage 🚀
-1. Create or Edit Your ~/.ssh/config
+1. [Create or Edit Your ~/.ssh/config](#configuration-)
 2. Enable Auto-Completion in Bash
     ```bash
     echo 'complete -W "$(awk "/^Host[[:space:]]+[^*]/ {print \$2}" ~/.ssh/config)" ssh' >> ~/.bashrc
