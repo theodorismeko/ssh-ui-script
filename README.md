@@ -1,6 +1,7 @@
 # SSH UI Script
 
 ## Overview
+![SSH UI Script Demo](images/image.png)
 This script provides a user-friendly dialog-based interface for connecting to SSH hosts defined in your SSH config file. It automatically reads available hosts from `~/.ssh/config` and presents them in an interactive menu for easy selection.
 
 ## Features
