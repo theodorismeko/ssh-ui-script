@@ -1,37 +1,95 @@
 #!/bin/bash
 
-# Extract hosts from SSH config (only lines starting with "Host" followed by a name)
-HOSTS=$(awk '/^Host[ \t]+[^*]/ {print $2}' ~/.ssh/config | sort -u)
+# Function to extract project and host information from SSH config
+parse_ssh_config() {
+    # Create associative arrays for projects and hosts
+    declare -A projects
+    current_project=""
+    
+    while IFS= read -r line; do
+        # Check for project comment (format: # Project: project_name)
+        if [[ $line =~ ^#[[:space:]]*Project:[[:space:]]*(.+) ]]; then
+            current_project="${BASH_REMATCH[1]}"
+            # Initialize array for this project if it doesn't exist
+            [[ -z ${projects[$current_project]} ]] && projects[$current_project]=""
+        # Check for Host entries
+        elif [[ $line =~ ^Host[[:space:]]+([^*][^[:space:]]+) ]]; then
+            host="${BASH_REMATCH[1]}"
+            # If no project specified, put in "Uncategorized"
+            [[ -z $current_project ]] && current_project="Uncategorized"
+            # Add host to project
+            projects[$current_project]+="$host "
+        fi
+    done < ~/.ssh/config
+    
+    echo "declare -A projects=("
+    for project in "${!projects[@]}"; do
+        echo "[$project]='${projects[$project]}'"
+    done
+    echo ")"
+}
 
-# Check if any hosts were found
-if [[ -z "$HOSTS" ]]; then
-    echo "No valid hosts found in ~/.ssh/config. Exiting..."
-    exit 1
-fi
+# Load projects and hosts
+eval "$(parse_ssh_config)"
 
-# Build dialog menu options dynamically
-MENU_OPTIONS=""
-COUNT=1
-declare -A HOST_MAP  # Map for storing numbered options
+# Function to show project selection menu
+show_project_menu() {
+    local menu_options=""
+    local count=1
+    declare -A project_map
+    
+    for project in "${!projects[@]}"; do
+        menu_options+="$count \"$project\" "
+        project_map[$count]="$project"
+        ((count++))
+    done
+    
+    local selected=$(dialog --title "Project Selection" \
+        --menu "Select Project:" 0 0 0 $menu_options \
+        3>&1 1>&2 2>&3 3>&-)
+    
+    echo "${project_map[$selected]}"
+}
 
-while read -r HOST; do
-    # Skip empty lines or invalid entries
-    [[ -z "$HOST" ]] && continue
-    MENU_OPTIONS+="$COUNT \"$HOST\" "
-    HOST_MAP["$COUNT"]="$HOST"
-    ((COUNT++))
-done <<< "$HOSTS"
+# Function to show host selection menu for a project
+show_host_menu() {
+    local project="$1"
+    local hosts=(${projects[$project]})
+    local menu_options=""
+    local count=1
+    declare -A host_map
+    
+    for host in "${hosts[@]}"; do
+        [[ -z "$host" ]] && continue
+        menu_options+="$count \"$host\" "
+        host_map[$count]="$host"
+        ((count++))
+    done
+    
+    local selected=$(dialog --title "$project" \
+        --menu "Select Machine for Login:" 0 0 0 $menu_options \
+        3>&1 1>&2 2>&3 3>&-)
+    
+    echo "${host_map[$selected]}"
+}
 
-# Show dialog menu
-MACHINE=$(dialog --menu "Welcome! Theodoris-Meko\nSelect Machine for Login:" 0 0 0 $MENU_OPTIONS 3>&1 1>&2 2>&3 3>&-)
-
+# Main execution flow
 clear
 
-# If a valid selection was made, SSH into the selected host
-if [[ -n "$MACHINE" ]]; then
-    ssh "${HOST_MAP[$MACHINE]}"
-    exit
-else
-    echo "No machine selected. Exiting..."
-    exit 1
+# Show project selection
+selected_project=$(show_project_menu)
+
+if [[ -n "$selected_project" ]]; then
+    # Show host selection for selected project
+    selected_host=$(show_host_menu "$selected_project")
+    
+    if [[ -n "$selected_host" ]]; then
+        clear
+        ssh "$selected_host"
+        exit
+    fi
 fi
+
+clear
+echo "No selection of machine made. Exiting..."
+exit 1
